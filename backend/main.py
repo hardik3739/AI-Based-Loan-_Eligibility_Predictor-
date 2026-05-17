@@ -1,14 +1,14 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from io import StringIO
 import os
 
-from schemas import LoanApplication, PredictionResponse
-from feature_engineering import process_features
-from model import load_model, predict, train_and_save_model
-from explain import get_explanation
-from fairness import calculate_fairness_metrics
+from .schemas import LoanApplication, PredictionResponse
+from .feature_engineering import process_features
+from .model import load_model, predict, train_and_save_model
+from .explain import get_explanation
+from .fairness import calculate_fairness_metrics
 
 app = FastAPI(title="AI Loan Predictor API", description="Predicts loan eligibility using ML and alternative data.")
 
@@ -39,6 +39,9 @@ def startup_event():
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict_eligibility(application: LoanApplication):
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded yet. Try again later.")
+
     df = pd.DataFrame([application.model_dump()])
     features = process_features(df)
     
@@ -54,6 +57,8 @@ def predict_eligibility(application: LoanApplication):
 
 @app.post("/explain")
 async def explain_from_csv(file: UploadFile = File(...)):
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded yet. Try again later.")
     contents = await file.read()
     s = str(contents, 'utf-8')
     data = StringIO(s) 
